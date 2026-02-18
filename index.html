@@ -1,14 +1,505 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hello World</title>
-  <link href='/style.css' rel='stylesheet'>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>로또 번호 생성기 (6/45)</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: rgba(255,255,255,.06);
+      --text: #e8eefc;
+      --muted: rgba(232,238,252,.75);
+      --line: rgba(255,255,255,.12);
+      --btn: rgba(255,255,255,.10);
+      --btnHover: rgba(255,255,255,.16);
+      --accent: #7aa2ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Apple SD Gothic Neo, "Noto Sans KR", sans-serif;
+      background: radial-gradient(1200px 800px at 30% 10%, rgba(122,162,255,.25), transparent 55%),
+                  radial-gradient(1200px 800px at 80% 40%, rgba(255,122,196,.18), transparent 60%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .wrap { width: min(920px, 100%); display: grid; gap: 16px; }
+    .title {
+      display:flex; justify-content:space-between; align-items:flex-end; gap: 12px;
+    }
+    h1 { margin:0; font-size: 26px; letter-spacing: -.3px; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .grid { display:grid; gap: 16px; grid-template-columns: 1.2fr .8fr; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 30px rgba(0,0,0,.35);
+    }
+
+    .row { display:flex; flex-wrap:wrap; gap: 10px; align-items:center; }
+    .row.space { justify-content: space-between; }
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--btn);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: .15s;
+      font-weight: 600;
+      letter-spacing: -.2px;
+    }
+    .btn:hover { background: var(--btnHover); }
+    .btn.primary { border-color: rgba(122,162,255,.45); box-shadow: 0 0 0 2px rgba(122,162,255,.14) inset; }
+    .btn.danger { border-color: rgba(255,120,120,.38); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .numbers {
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px 0 6px;
+    }
+    .ball {
+      width: 52px; height: 52px;
+      border-radius: 999px;
+      display:grid; place-items:center;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.08);
+      font-size: 18px;
+      font-weight: 800;
+      user-select: none;
+    }
+    .ball.small { width: 38px; height: 38px; font-size: 14px; font-weight: 800; }
+    .ball.active { outline: 2px solid rgba(122,162,255,.55); background: rgba(122,162,255,.18); }
+    .ball.excluded { outline: 2px solid rgba(255,120,120,.55); background: rgba(255,120,120,.14); }
+
+    .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .hr { height: 1px; background: var(--line); margin: 12px 0; }
+
+    .kvs { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 520px) { .kvs { grid-template-columns: 1fr; } }
+    .kv {
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.16);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .kv .label { color: var(--muted); font-size: 12px; }
+    .kv .value { margin-top: 6px; font-weight: 800; letter-spacing: -.3px; }
+    .hint { color: rgba(232,238,252,.65); font-size: 12px; margin-top: 8px; }
+
+    .history { display:grid; gap: 10px; }
+    .hist-item {
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.14);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display:flex; align-items:center; justify-content:space-between; gap: 12px;
+    }
+    .hist-left { display:flex; gap: 8px; flex-wrap:wrap; }
+    .pill {
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      white-space: nowrap;
+    }
+
+    input[type="number"]{
+      width: 86px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      font-weight: 700;
+    }
+    .chipbar { display:flex; flex-wrap:wrap; gap: 8px; }
+    .chip {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 700;
+      font-size: 13px;
+      transition: .12s;
+    }
+    .chip:hover { background: rgba(255,255,255,.10); }
+    .chip.on { outline: 2px solid rgba(122,162,255,.55); background: rgba(122,162,255,.18); }
+    .chip.off { outline: 2px solid rgba(255,120,120,.55); background: rgba(255,120,120,.14); }
+  </style>
 </head>
+
 <body>
-  <h1>Hello, world!</h1>
-  <button onclick="console.log('hello');">Press me</button>
-  <script defer type="text/javascript" src="/main.js"></script>
+  <div class="wrap">
+    <div class="title">
+      <div>
+        <h1>로또 번호 생성기 (6/45)</h1>
+        <div class="sub">중복 없이 6개 뽑기 · 정렬 · 히스토리 · 고정(포함) / 제외 옵션</div>
+      </div>
+      <div class="sub" id="now"></div>
+    </div>
+
+    <div class="grid">
+      <!-- Left: Generator -->
+      <div class="card">
+        <div class="row space">
+          <div class="muted">
+            숫자를 클릭해서 <b style="color:var(--accent)">포함(고정)</b> 또는 <b style="color:#ff9090">제외</b>를 설정할 수 있어요.
+          </div>
+          <div class="row">
+            <button class="btn primary" id="btnGen">🎲 생성</button>
+            <button class="btn" id="btnCopy">📋 복사</button>
+            <button class="btn danger" id="btnReset">↩ 초기화</button>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="kvs">
+          <div class="kv">
+            <div class="label">생성 결과</div>
+            <div class="numbers" id="resultBalls"></div>
+            <div class="hint" id="resultText"></div>
+          </div>
+
+          <div class="kv">
+            <div class="label">설정</div>
+            <div class="row" style="margin-top:8px;">
+              <div class="muted">한 번에 생성 개수</div>
+              <input type="number" id="count" min="1" max="20" value="1" />
+              <button class="btn" id="btnBatch">여러 줄 생성</button>
+            </div>
+            <div class="hint">예: 5로 두고 “여러 줄 생성” → 5게임 생성</div>
+            <div class="hr"></div>
+            <div class="muted">
+              <b style="color:var(--accent)">포함(고정)</b>: <span id="includeInfo">없음</span><br/>
+              <b style="color:#ff9090">제외</b>: <span id="excludeInfo">없음</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="row space">
+          <div class="muted">숫자 선택 모드</div>
+          <div class="chipbar">
+            <div class="chip on" id="modeInclude">포함(고정)</div>
+            <div class="chip" id="modeExclude">제외</div>
+            <div class="chip" id="modeNone">해제</div>
+          </div>
+        </div>
+
+        <div class="numbers" id="picker" style="margin-top:12px;"></div>
+        <div class="hint">모드 선택 후 숫자(1~45)를 클릭해 포함/제외를 토글하세요.</div>
+      </div>
+
+      <!-- Right: History -->
+      <div class="card">
+        <div class="row space">
+          <div>
+            <div style="font-weight:900; font-size:16px;">히스토리</div>
+            <div class="muted">최근 생성 결과 최대 20개 저장</div>
+          </div>
+          <button class="btn danger" id="btnClearHistory">비우기</button>
+        </div>
+
+        <div class="hr"></div>
+        <div class="history" id="history"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ===== Utils =====
+  const $ = (sel) => document.querySelector(sel);
+  const pad2 = (n) => String(n).padStart(2,'0');
+
+  function nowText() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // ===== State =====
+  const state = {
+    mode: "include", // include | exclude | none
+    include: new Set(), // fixed numbers
+    exclude: new Set(),
+    history: [] // array of {ts, nums[]}
+  };
+
+  // ===== UI init =====
+  $("#now").textContent = nowText();
+  setInterval(()=> $("#now").textContent = nowText(), 15000);
+
+  // Create picker balls 1..45
+  const picker = $("#picker");
+  for (let n=1; n<=45; n++){
+    const el = document.createElement("div");
+    el.className = "ball small";
+    el.textContent = n;
+    el.dataset.n = n;
+    el.addEventListener("click", () => onPick(n));
+    picker.appendChild(el);
+  }
+
+  function renderPicker() {
+    picker.querySelectorAll(".ball").forEach(el => {
+      const n = Number(el.dataset.n);
+      el.classList.toggle("active", state.include.has(n));
+      el.classList.toggle("excluded", state.exclude.has(n));
+    });
+    $("#includeInfo").textContent = state.include.size ? [...state.include].sort((a,b)=>a-b).join(", ") : "없음";
+    $("#excludeInfo").textContent = state.exclude.size ? [...state.exclude].sort((a,b)=>a-b).join(", ") : "없음";
+
+    // Mode chips
+    $("#modeInclude").classList.toggle("on", state.mode === "include");
+    $("#modeExclude").classList.toggle("on", state.mode === "exclude");
+    $("#modeNone").classList.toggle("on", state.mode === "none");
+  }
+
+  function setMode(m) {
+    state.mode = m;
+    // visual chip states handled by renderPicker
+    renderPicker();
+    // chip color helper: keep only one "on"
+    $("#modeInclude").classList.toggle("on", state.mode === "include");
+    $("#modeExclude").classList.toggle("on", state.mode === "exclude");
+    $("#modeNone").classList.toggle("on", state.mode === "none");
+    // also keep hover styles; we used .on only, not removing base
+  }
+
+  $("#modeInclude").addEventListener("click", ()=> setMode("include"));
+  $("#modeExclude").addEventListener("click", ()=> setMode("exclude"));
+  $("#modeNone").addEventListener("click", ()=> setMode("none"));
+
+  function onPick(n){
+    if (state.mode === "include") {
+      if (state.include.has(n)) state.include.delete(n);
+      else {
+        state.include.add(n);
+        state.exclude.delete(n);
+      }
+    } else if (state.mode === "exclude") {
+      if (state.exclude.has(n)) state.exclude.delete(n);
+      else {
+        state.exclude.add(n);
+        state.include.delete(n);
+      }
+    } else { // none -> clear any marks
+      state.include.delete(n);
+      state.exclude.delete(n);
+    }
+    renderPicker();
+  }
+
+  // ===== Generator =====
+  function generateOne() {
+    // Validation
+    if (state.include.size > 6) {
+      alert("포함(고정) 숫자가 6개를 초과했어요. 6개 이하로 줄여주세요.");
+      return null;
+    }
+    if (state.exclude.size > 45 - 6) {
+      alert("제외 숫자가 너무 많아서 6개를 뽑을 수 없어요.");
+      return null;
+    }
+
+    const fixed = [...state.include];
+    const pool = [];
+    for (let n=1; n<=45; n++){
+      if (!state.exclude.has(n) && !state.include.has(n)) pool.push(n);
+    }
+
+    shuffle(pool);
+    const need = 6 - fixed.length;
+    if (pool.length < need) {
+      alert("현재 포함/제외 설정으로는 6개를 만들 수 없어요. 제외를 줄이거나 포함을 줄여주세요.");
+      return null;
+    }
+
+    const picked = fixed.concat(pool.slice(0, need)).sort((a,b)=>a-b);
+    return picked;
+  }
+
+  function renderResult(nums) {
+    const box = $("#resultBalls");
+    box.innerHTML = "";
+    nums.forEach(n => {
+      const el = document.createElement("div");
+      el.className = "ball";
+      el.textContent = n;
+      box.appendChild(el);
+    });
+    $("#resultText").textContent = nums.join(", ");
+  }
+
+  function pushHistory(nums) {
+    state.history.unshift({ ts: new Date().toISOString(), nums });
+    state.history = state.history.slice(0, 20);
+    renderHistory();
+    saveLocal();
+  }
+
+  function renderHistory() {
+    const h = $("#history");
+    h.innerHTML = "";
+    if (!state.history.length) {
+      const empty = document.createElement("div");
+      empty.className = "muted";
+      empty.textContent = "아직 생성 기록이 없어요.";
+      h.appendChild(empty);
+      return;
+    }
+
+    state.history.forEach((item, idx) => {
+      const row = document.createElement("div");
+      row.className = "hist-item";
+
+      const left = document.createElement("div");
+      left.className = "hist-left";
+      item.nums.forEach(n => {
+        const b = document.createElement("div");
+        b.className = "ball small";
+        b.textContent = n;
+        left.appendChild(b);
+      });
+
+      const right = document.createElement("div");
+      const t = new Date(item.ts);
+      const pill1 = document.createElement("div");
+      pill1.className = "pill";
+      pill1.textContent = `${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())} ${pad2(t.getHours())}:${pad2(t.getMinutes())}`;
+
+      const btn = document.createElement("button");
+      btn.className = "btn";
+      btn.textContent = "결과로 적용";
+      btn.addEventListener("click", () => {
+        renderResult(item.nums);
+        $("#resultText").textContent = item.nums.join(", ");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      right.style.display = "grid";
+      right.style.gap = "8px";
+      right.style.justifyItems = "end";
+      right.appendChild(pill1);
+      right.appendChild(btn);
+
+      row.appendChild(left);
+      row.appendChild(right);
+      h.appendChild(row);
+    });
+  }
+
+  // ===== LocalStorage =====
+  const LS_KEY = "lotto_gen_v1";
+  function saveLocal() {
+    const payload = {
+      include: [...state.include],
+      exclude: [...state.exclude],
+      history: state.history
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(payload));
+  }
+  function loadLocal() {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      state.include = new Set(Array.isArray(data.include) ? data.include : []);
+      state.exclude = new Set(Array.isArray(data.exclude) ? data.exclude : []);
+      state.history = Array.isArray(data.history) ? data.history : [];
+    } catch {}
+  }
+
+  // ===== Buttons =====
+  $("#btnGen").addEventListener("click", () => {
+    const nums = generateOne();
+    if (!nums) return;
+    renderResult(nums);
+    pushHistory(nums);
+  });
+
+  $("#btnBatch").addEventListener("click", () => {
+    const c = Number($("#count").value);
+    if (!Number.isFinite(c) || c < 1 || c > 20) {
+      alert("생성 개수는 1~20 사이로 입력해주세요.");
+      return;
+    }
+    const lines = [];
+    for (let i=0; i<c; i++){
+      const nums = generateOne();
+      if (!nums) return;
+      lines.push(nums);
+      pushHistory(nums);
+      // 마지막 줄을 결과로 표시
+      renderResult(nums);
+    }
+    // 복사용 텍스트를 마지막에 보여주기
+    $("#resultText").textContent = lines.map(a => a.join(", ")).join(" | ");
+  });
+
+  $("#btnCopy").addEventListener("click", async () => {
+    const text = $("#resultText").textContent.trim();
+    if (!text) { alert("복사할 결과가 없어요. 먼저 생성하세요."); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("복사 완료! ✅");
+    } catch {
+      // Fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      alert("복사 완료! ✅");
+    }
+  });
+
+  $("#btnReset").addEventListener("click", () => {
+    state.include.clear();
+    state.exclude.clear();
+    renderPicker();
+    saveLocal();
+  });
+
+  $("#btnClearHistory").addEventListener("click", () => {
+    if (!confirm("히스토리를 모두 지울까요?")) return;
+    state.history = [];
+    renderHistory();
+    saveLocal();
+  });
+
+  // ===== Start =====
+  loadLocal();
+  renderPicker();
+  renderHistory();
+</script>
 </body>
 </html>
